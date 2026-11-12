@@ -1,0 +1,13 @@
+{
+  "name": "snapdeal-virtual-kam",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "openai": "^7.55.0"
+  }
+}

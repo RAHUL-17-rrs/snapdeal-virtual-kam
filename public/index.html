@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Snapdeal Virtual KAM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,750&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ------------------------------------------------------------------ tokens */
+:root {
+  --brand: #E40046;          /* Snapdeal: brand mark + primary call action only */
+  --rail: #1B1630;           /* the phone in your hand */
+  --rail-2: #2A2345;
+  --rail-ink: #EDEAF7;
+  --rail-mute: #A79FC6;
+  --canvas: #F1F2F6;
+  --paper: #FFFFFF;
+  --ink: #1D1B26;
+  --mute: #686579;
+  --line: #E3E3EB;
+  --loss: #C2410C;           /* money lost */
+  --gain: #0E8C6E;           /* money recovered */
+  --agent: #4338CA;          /* anything the AI agent did */
+  --warn: #B7791F;
+  --display: "Bricolage Grotesque", "Segoe UI", sans-serif;
+  --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --r-lg: 14px; --r-md: 10px; --r-sm: 6px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: 15px/1.5 var(--body); color: var(--ink); background: var(--canvas); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+button { font: inherit; cursor: pointer; border: 0; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--agent); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; letter-spacing: -0.01em; }
+.num { font-family: var(--display); font-weight: 650; letter-spacing: -0.02em; }
+.mute { color: var(--mute); }
+.loss { color: var(--loss); } .gain { color: var(--gain); }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ------------------------------------------------------------------ top bar */
+.top { height: 58px; display: flex; align-items: center; gap: 22px; padding: 0 22px; background: var(--paper); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+.mark { font-family: var(--display); font-weight: 750; font-size: 21px; color: var(--brand); letter-spacing: -0.03em; }
+.mark small { font-family: var(--body); font-weight: 600; font-size: 14px; color: var(--ink); letter-spacing: 0; margin-left: 8px; }
+.tabs { display: flex; gap: 2px; }
+.tabs button { background: none; padding: 8px 14px; border-radius: var(--r-sm); color: var(--mute); font-weight: 600; font-size: 14px; }
+.tabs button[aria-selected="true"] { color: var(--ink); background: var(--canvas); }
+.engine { margin-left: auto; display: flex; gap: 14px; font-size: 13px; color: var(--mute); }
+.engine b { color: var(--ink); font-weight: 600; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--gain); margin-right: 6px; vertical-align: 1px; }
+
+/* ------------------------------------------------------------------ portfolio */
+.portfolio { max-width: 1240px; margin: 0 auto; padding: 34px 24px 60px; }
+.portfolio h1 { font-size: clamp(26px, 3.2vw, 38px); font-weight: 650; line-height: 1.15; max-width: 26ch; }
+.portfolio h1 .num { color: var(--loss); }
+.portfolio .lede { margin: 10px 0 26px; color: var(--mute); max-width: 70ch; }
+.sheet { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 500; font-size: 13px; color: var(--mute); padding: 12px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+.seller-cell b { display: block; font-weight: 600; }
+.seller-cell span { font-size: 13px; color: var(--mute); }
+tr.live { background: #FBFAFF; }
+tr.live .seller-cell b::after { content: "Live data"; font-size: 11px; font-weight: 600; color: var(--agent); background: #ECEBFB; border-radius: 99px; padding: 1px 8px; margin-left: 8px; vertical-align: 2px; }
+.next { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.next.today { color: var(--brand); } .next.week { color: var(--warn); } .next.nudge { color: var(--agent); } .next.monitor { color: var(--gain); }
+.prio { height: 6px; border-radius: 3px; background: var(--loss); opacity: .85; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.btn { padding: 8px 14px; border-radius: var(--r-sm); font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+.btn.primary { background: var(--brand); color: #fff; }
+.btn.quiet { background: var(--canvas); color: var(--ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------ workspace */
+.work { display: grid; grid-template-columns: 340px minmax(0, 1fr); min-height: calc(100vh - 58px); }
+@media (max-width: 1000px) { .work { grid-template-columns: 1fr; } }
+
+/* call rail */
+.rail { background: var(--rail); color: var(--rail-ink); display: flex; flex-direction: column; padding: 18px; gap: 14px; position: sticky; top: 58px; height: calc(100vh - 58px); }
+@media (max-width: 1000px) { .rail { position: static; height: auto; min-height: 560px; } }
+.rail label { font-size: 13px; color: var(--rail-mute); }
+.rail select { width: 100%; margin-top: 6px; background: var(--rail-2); color: var(--rail-ink); border: 1px solid #3B3360; border-radius: var(--r-md); padding: 10px 12px; font: 600 14px var(--body); }
+.voice { text-align: center; padding: 14px 0 4px; }
+.bars { display: flex; justify-content: center; align-items: center; gap: 5px; height: 56px; }
+.bars i { width: 6px; height: 10px; border-radius: 3px; background: #4A4170; transition: background .2s; }
+.voice[data-state="speaking"] .bars i { background: var(--brand); animation: eq .9s ease-in-out infinite; }
+.voice[data-state="listening"] .bars i { background: #34D3A6; animation: eq 1.3s ease-in-out infinite; }
+.voice[data-state="seller"] .bars i { background: #F5B544; animation: eq 1.1s ease-in-out infinite; }
+.voice[data-state="thinking"] .bars i { background: #8B7CF6; animation: think 1.1s ease-in-out infinite; }
+.bars i:nth-child(2) { animation-delay: -.2s !important; } .bars i:nth-child(3) { animation-delay: -.45s !important; } .bars i:nth-child(4) { animation-delay: -.1s !important; } .bars i:nth-child(5) { animation-delay: -.6s !important; } .bars i:nth-child(6) { animation-delay: -.35s !important; } .bars i:nth-child(7) { animation-delay: -.75s !important; }
+@keyframes eq { 0%, 100% { height: 10px; } 50% { height: 46px; } }
+@keyframes think { 0%, 100% { height: 10px; opacity: .5; } 50% { height: 18px; opacity: 1; } }
+.status { font-family: var(--display); font-size: 19px; font-weight: 650; margin-top: 10px; }
+.sub { font-size: 13px; color: var(--rail-mute); min-height: 20px; margin-top: 2px; }
+.controls { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.talk { background: #F3F1FB; color: var(--rail); padding: 12px; border-radius: var(--r-md); font-weight: 700; font-size: 15px; }
+.talk[data-kind="interrupt"] { background: #FFE3EC; color: #9F0033; }
+.talk[data-kind="done"] { background: #34D3A6; color: #06382B; }
+.talk[data-kind="speak"] { background: #FFFFFF; color: var(--rail); box-shadow: 0 0 0 3px rgba(52, 211, 166, .45); }
+.talk { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.talk svg { flex: none; }
+.kbd { font-size: 12px; color: var(--rail-mute); text-align: center; margin-top: -4px; }
+.hang { background: var(--brand); color: #fff; padding: 12px 16px; border-radius: var(--r-md); font-weight: 700; }
+.talk:disabled { opacity: .5; cursor: not-allowed; }
+.start { display: grid; gap: 8px; }
+.start .btn { padding: 12px; font-size: 14.5px; border-radius: var(--r-md); }
+.start .btn.quiet { background: var(--rail-2); color: var(--rail-ink); }
+.transcript { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 2px 4px; border-top: 1px solid #332B55; }
+.line { font-size: 14px; line-height: 1.45; max-width: 92%; }
+.line .who { font-size: 12px; color: var(--rail-mute); display: block; margin-bottom: 2px; }
+.line.kam { align-self: flex-start; }
+.line.seller { align-self: flex-end; text-align: right; }
+.line.seller p { background: var(--rail-2); }
+.line p { margin: 0; padding: 8px 11px; border-radius: var(--r-md); background: #241E3D; }
+.line.cut p::after { content: " (interrupted)"; color: var(--rail-mute); font-size: 12px; }
+.line.note p { background: none; padding: 0; color: var(--rail-mute); font-size: 13px; }
+.typed { display: flex; gap: 6px; }
+.typed input { flex: 1; min-width: 0; background: var(--rail-2); border: 1px solid #3B3360; color: var(--rail-ink); border-radius: var(--r-md); padding: 10px 12px; font: 14px var(--body); }
+.typed input::placeholder { color: var(--rail-mute); }
+.typed button { background: var(--rail-2); color: var(--rail-ink); border-radius: var(--r-md); padding: 0 14px; font-weight: 600; }
+
+/* canvas */
+.canvas { padding: 24px 26px 60px; display: grid; gap: 18px; align-content: start; min-width: 0; }
+.head { display: grid; gap: 6px; }
+.head h1 { font-size: clamp(26px, 2.8vw, 34px); font-weight: 750; letter-spacing: -0.025em; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--mute); }
+.story { font-size: 16.5px; max-width: 75ch; line-height: 1.5; margin-top: 4px; }
+.story.empty { color: var(--mute); }
+.alerts { display: flex; flex-wrap: wrap; gap: 6px; }
+.alert { font-size: 13px; font-weight: 600; color: var(--loss); background: #FDF0E9; border-radius: 99px; padding: 3px 10px; }
+
+/* ownership track: a real sequence, so it reads left to right */
+.track { display: grid; grid-template-columns: repeat(8, 1fr); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.track li { list-style: none; padding: 10px 12px 11px; font-size: 13px; font-weight: 600; color: var(--mute); border-right: 1px solid var(--line); position: relative; transition: color .3s, background .3s; }
+.track li:last-child { border-right: 0; }
+.track li::before { content: ""; display: block; height: 4px; border-radius: 2px; background: var(--line); margin-bottom: 7px; transition: background .4s; }
+.track li.on { color: var(--agent); background: #F5F4FE; }
+.track li.on::before { background: var(--agent); }
+.track li.esc.on { color: var(--loss); background: #FDF3EE; } .track li.esc.on::before { background: var(--loss); }
+@media (max-width: 760px) { .track { grid-template-columns: repeat(4, 1fr); } .track li:nth-child(4) { border-right: 0; } .track li:nth-child(-n+4) { border-bottom: 1px solid var(--line); } }
+
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr) 1.35fr; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.kpi { padding: 14px 16px; border-right: 1px solid var(--line); }
+.kpi:last-child { border-right: 0; }
+.kpi .k { font-size: 13px; color: var(--mute); }
+.kpi .v { font-size: 25px; display: block; margin-top: 2px; }
+.kpi .d { font-size: 13px; font-weight: 600; }
+.kpi .was { font-size: 12.5px; color: var(--mute); }
+.health { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.health .arrow { color: var(--mute); }
+@media (max-width: 1250px) { .kpis { grid-template-columns: repeat(3, 1fr); } .kpi:nth-child(3) { border-right: 0; } .kpi:nth-child(-n+3) { border-bottom: 1px solid var(--line); } }
+
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px 20px; min-width: 0; }
+.panel h2 { font-size: 17px; font-weight: 650; }
+.panel .hint { font-size: 13px; color: var(--mute); margin: 2px 0 14px; }
+.grid { display: grid; gap: 18px; }
+.g-7-5 { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+.g-1-1 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.g-3 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 1250px) { .g-7-5, .g-1-1, .g-3 { grid-template-columns: 1fr; } }
+.empty-state { color: var(--mute); font-size: 14px; padding: 6px 0; }
+
+.skus td, .skus th { padding: 9px 8px; font-size: 14px; }
+.skus th { font-size: 12.5px; }
+.skus tr.hl td { background: #FFF6D8; }
+.pill { font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.pill.out { background: #FDE8E1; color: var(--loss); } .pill.low { background: #FFF2D6; color: var(--warn); } .pill.ok { background: #E3F5EF; color: var(--gain); } .pill.nobb { background: #FDE8E1; color: var(--loss); }
+
+.issue { padding: 10px 0 10px 14px; border-left: 3px solid var(--line); margin-bottom: 4px; }
+.issue.high { border-color: var(--loss); } .issue.medium { border-color: var(--warn); } .issue.low { border-color: var(--gain); }
+.issue b { display: block; font-weight: 600; }
+.issue span { font-size: 13.5px; color: var(--mute); }
+.issue.fresh, .opp.fresh { animation: reveal 1.6s ease-out; }
+@keyframes reveal { from { background: #F1EFFE; } to { background: transparent; } }
+.issue .amt { float: right; font-family: var(--display); font-weight: 650; color: var(--loss); margin-left: 10px; }
+
+.opp { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.opp:last-child { border-bottom: 0; }
+.opp b { font-weight: 600; }
+.opp .who { font-size: 12px; font-weight: 600; margin-left: 6px; color: var(--agent); }
+.opp .who.seller { color: var(--warn); }
+.opp .basis { grid-column: 1; font-size: 13px; color: var(--mute); }
+.opp .amt { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-family: var(--display); font-weight: 650; color: var(--gain); font-size: 18px; }
+.opp .meter { grid-column: 1 / -1; height: 5px; background: #E6F4EF; border-radius: 3px; }
+.opp .meter i { display: block; height: 100%; background: var(--gain); border-radius: 3px; }
+
+/* agent timeline */
+.timeline { max-height: 420px; overflow-y: auto; padding-right: 4px; }
+.ev { display: grid; grid-template-columns: 12px 1fr; gap: 10px; padding-bottom: 12px; position: relative; }
+.ev::before { content: ""; position: absolute; left: 5px; top: 14px; bottom: 0; width: 2px; background: var(--line); }
+.ev:last-child::before { display: none; }
+.ev .pt { width: 12px; height: 12px; border-radius: 50%; background: var(--c, var(--mute)); margin-top: 4px; }
+.ev .h { font-size: 13px; } .ev .h b { color: var(--c, var(--ink)); font-weight: 650; margin-right: 6px; }
+.ev .h span { color: var(--mute); }
+.ev .d { font-size: 13.5px; }
+.ev.respond .pt { background: var(--line); }
+.ev.respond .d { color: var(--mute); }
+.ev.new { animation: arrive .6s ease-out; }
+@keyframes arrive { from { background: #EFEDFD; } to { background: transparent; } }
+
+.item { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.item:last-child { border-bottom: 0; }
+.item .tick { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+.item .tick.done { background: #E3F5EF; color: var(--gain); }
+.item .tick.seller { background: #FFF2D6; color: var(--warn); }
+.item .tick.kam { background: #ECEBFB; color: var(--agent); }
+.item .tick.cal { background: #ECEBFB; color: var(--agent); }
+.item b { font-weight: 600; font-size: 14px; display: block; }
+.item span { font-size: 13px; color: var(--mute); }
+
+.forecast { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: end; height: 150px; padding-top: 8px; }
+.forecast div { text-align: center; font-size: 13px; color: var(--mute); }
+.forecast i { display: block; width: 56%; margin: 6px auto 0; border-radius: var(--r-sm) var(--r-sm) 0 0; background: #CFCDDA; }
+.forecast .now i { background: var(--loss); } .forecast .next i { background: var(--gain); }
+.forecast b { display: block; color: var(--ink); font-family: var(--display); font-size: 17px; }
+.summary h3 { font-size: 14px; font-weight: 650; margin: 12px 0 4px; font-family: var(--body); }
+.summary ul { margin: 0; padding-left: 18px; } .summary li { margin-bottom: 3px; font-size: 14px; }
+.escalation { border-color: #F2C9B5; background: #FFF8F4; }
+.line.seller .via { display: block; font-size: 11.5px; color: #F5B544; margin-top: 3px; }
+.demo-btn { background: none !important; border: 1px dashed #5A4F86 !important; color: var(--rail-ink) !important; }
+.caption { position: fixed; left: 362px; right: 24px; bottom: 18px; z-index: 20; background: var(--rail); color: var(--rail-ink); border-radius: var(--r-lg); padding: 14px 18px; display: grid; grid-template-columns: auto 1fr auto; gap: 4px 16px; align-items: center; box-shadow: 0 10px 30px rgba(27, 22, 48, .35); }
+.caption .step { font-family: var(--display); font-weight: 750; font-size: 15px; color: #F5B544; grid-row: 1 / span 2; white-space: nowrap; }
+.caption b { font-family: var(--display); font-size: 17px; font-weight: 650; }
+.caption span { font-size: 14px; color: var(--rail-mute); grid-column: 2; }
+.caption button { grid-row: 1 / span 2; grid-column: 3; background: var(--rail-2); color: var(--rail-ink); border-radius: var(--r-sm); padding: 8px 12px; font-weight: 600; font-size: 13px; }
+@media (max-width: 1000px) { .caption { left: 12px; right: 12px; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span class="mark">snapdeal<small>Virtual KAM</small></span>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tabP" aria-selected="true">Portfolio</button>
+    <button role="tab" id="tabW" aria-selected="false">Seller workspace</button>
+  </nav>
+  <div class="engine"><span><span class="dot"></span>Brain <b id="engBrain">…</b></span><span>Voice <b id="engVoice">…</b></span></div>
+</header>
+
+<!-- ============================================================ PORTFOLIO -->
+<main id="viewP" class="portfolio">
+  <h1 id="pHead">Loading your sellers…</h1>
+  <p class="lede">The Virtual KAM watches every seller's numbers and ranks them by money at risk, weighting problems it can fix, like cancellations, stock-outs and a falling rating. Sellers with live data can be opened or called.</p>
+  <div class="sheet"><table id="pTable"></table></div>
+</main>
+
+<!-- ============================================================ WORKSPACE -->
+<div id="viewW" class="work" hidden>
+  <aside class="rail" aria-label="Voice call">
+    <label>Seller on this call
+      <select id="sellerSel"></select>
+    </label>
+
+    <div class="voice" id="voice" data-state="idle" aria-live="polite">
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="status" id="status">Ready to call</div>
+      <div class="sub" id="sub">Priya can call the seller, take their call, or follow up.</div>
+    </div>
+
+    <div class="start" id="startBtns">
+      <button class="btn primary" data-mode="outbound">Call seller now</button>
+      <button class="btn quiet" data-mode="inbound">Seller calls Priya</button>
+      <button class="btn quiet" data-mode="followup" id="followBtn">Day-7 follow-up call</button>
+      <button class="btn quiet demo-btn" id="demoBtn" hidden>Play auto demo</button>
+    </div>
+    <div class="controls" id="callBtns" hidden>
+      <button class="talk" id="talkBtn">Speak</button>
+      <button class="hang" id="hangBtn">End call</button>
+    </div>
+
+    <p class="kbd" id="kbdHint" hidden>Shortcut: press the space bar to speak, and again to send.</p>
+    <div class="transcript" id="log" aria-live="polite"></div>
+    <form class="typed" id="typed"><input id="typedIn" placeholder="No mic? Type what the seller says" aria-label="Type a message" /><button>Send</button></form>
+  </aside>
+
+  <main class="canvas">
+    <section class="head">
+      <h1 id="sName">Seller</h1>
+      <div class="meta" id="sMeta"></div>
+      <p class="story empty" id="story">Start a call and Priya will work out why sales moved.</p>
+      <div class="alerts" id="alerts"></div>
+    </section>
+
+    <ol class="track" id="track" aria-label="What the agent has done">
+      <li data-k="detect">Detect</li><li data-k="diagnose">Diagnose</li><li data-k="prioritise">Prioritise</li><li data-k="act">Act</li>
+      <li data-k="commit">Commit</li><li data-k="forecast">Forecast</li><li data-k="follow">Follow up</li><li data-k="escalate" class="esc">Escalate</li>
+    </ol>
+
+    <section class="kpis" id="kpis"></section>
+
+    <div class="grid g-7-5">
+      <section class="panel"><h2 id="bridgeTitle">Where the sales went</h2><p class="hint">Last month to this month, split by cause</p><div id="bridge"></div></section>
+      <section class="panel"><h2>Bestsellers</h2><p class="hint">Sales lost to stock-outs or a lost Buy Box. Rows light up when Priya mentions them.</p><div style="overflow-x:auto"><table class="skus" id="skus"></table></div></section>
+    </div>
+
+    <div class="grid g-1-1">
+      <section class="panel"><h2>Diagnosis</h2><p class="hint">Calculated from the data, shown as Priya explains each issue</p><div id="diag"><p class="empty-state">Issues appear here as Priya explains them on the call.</p></div></section>
+      <section class="panel"><h2>What to fix first</h2><p class="hint">Sized in rupees per month, shown as Priya proposes each fix</p><div id="opps"><p class="empty-state">Fixes appear here as Priya proposes them.</p></div></section>
+    </div>
+
+    <div class="grid g-3">
+      <section class="panel"><h2>Agent timeline</h2><p class="hint">Every step Priya takes, live</p><div class="timeline" id="trace"><p class="empty-state">Nothing yet. Start a call to watch Priya work.</p></div></section>
+      <section class="panel"><h2>Done by Priya</h2><p class="hint">Changes made on the account, only after the seller said yes</p><div id="executed"><p class="empty-state">No changes made yet.</p></div></section>
+      <section class="panel"><h2>Seller's to-do list</h2><p class="hint">Tasks the seller agreed to, with due dates</p><div id="actions"><p class="empty-state">No tasks agreed yet.</p></div><div id="follow"></div></section>
+    </div>
+
+    <section class="panel escalation" id="escCard" hidden><h2>Handed to a human KAM</h2><div id="esc"></div></section>
+    <div class="grid g-1-1">
+      <section class="panel" id="projCard" hidden><h2>Recovery forecast</h2><p class="hint" id="projHint"></p><div id="proj"></div></section>
+      <section class="panel summary" id="sumCard" hidden><h2>Call summary</h2><div id="summary"></div></section>
+    </div>
+  </main>
+</div>
+
+<div class="caption" id="caption" hidden aria-live="polite"><span class="step" id="capStep"></span><b id="capTitle"></b><span id="capText"></span><button id="stopDemo">Stop demo</button></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rs = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
+const rsK = (n) => { const a = Math.abs(n); return "₹" + (a >= 1e5 ? (a / 1e5).toFixed(2) + "L" : a >= 1000 ? Math.round(a / 1000) + "k" : Math.round(a)); };
+
+let DATA = null, TTS = "browser", sellerId = null;
+let callSession = null, queuedText = null, sessionId = null, mode = null, inCall = false, phase = "idle", turnSeq = 0, turnAbort = null, lastBot = "";
+
+// ======================================================================= VIEWS
+function show(v) {
+  $("viewP").hidden = v !== "p"; $("viewW").hidden = v !== "w";
+  $("tabP").setAttribute("aria-selected", v === "p"); $("tabW").setAttribute("aria-selected", v === "w");
+}
+$("tabP").onclick = () => show("p"); $("tabW").onclick = () => show("w");
+
+async function loadSeller(id) {
+  const d = await fetch("/api/seller" + (id ? "?id=" + id : "")).then((r) => r.json());
+  DATA = d; sellerId = d.seller.seller_id; TTS = d.tts || "browser";
+  $("engBrain").textContent = d.mode;
+  $("engVoice").textContent = { gnani: "Gnani", elevenlabs: "ElevenLabs", openai: "OpenAI TTS", browser: "Browser" }[TTS];
+  renderPortfolio(d.portfolio); renderSellerSelect(d.portfolio); renderHead(d); renderKpis(d); renderBridge(d.bridge); renderSkus(d.skus);
+  $("followBtn").hidden = !d.hasDay7;
+  $("demoBtn").hidden = TTS !== "gnani";
+  resetCallPanels();
+}
+loadSeller();
+
+// ======================================================================= PORTFOLIO
+function renderPortfolio(rows) {
+  const risk = rows.reduce((n, r) => n + r.revenue_at_risk, 0), today = rows.filter((r) => r.action === "Call today").length;
+  $("pHead").innerHTML = `${rows.length} sellers, <span class="num">${rs(risk)}</span> at risk this month. Priya has ${today} calls queued for today.`;
+  const max = Math.max(...rows.map((r) => r.priority));
+  const cls = { "Call today": "today", "Call this week": "week", "Nudge via app": "nudge", Monitor: "monitor" };
+  $("pTable").innerHTML = `<thead><tr><th>Seller</th><th class="r">Sales change</th><th class="r">Cancellations</th><th class="r">Out of stock</th><th class="r">Rating</th><th>Biggest issue</th><th class="r">At risk</th><th>Priority</th><th>Next step</th><th></th></tr></thead><tbody>` +
+    rows.map((r) => `<tr class="${r.demo ? "live" : ""}">
+      <td class="seller-cell"><b>${esc(r.name)}</b><span>${esc(r.city)}, ${esc(r.category)}</span></td>
+      <td class="r ${r.sales_change < -0.1 ? "loss" : r.sales_change > 0 ? "gain" : ""}">${r.sales_change > 0 ? "+" : ""}${Math.round(r.sales_change * 100)}%</td>
+      <td class="r ${r.cancellation_rate > 0.1 ? "loss" : ""}">${Math.round(r.cancellation_rate * 100)}%</td>
+      <td class="r ${r.oos >= 10 ? "loss" : ""}">${r.oos}</td>
+      <td class="r ${r.rating < 4.1 ? "loss" : ""}">${r.rating}</td>
+      <td>${esc(r.top_issue)}</td>
+      <td class="r num">${r.revenue_at_risk ? rs(r.revenue_at_risk) : "None"}</td>
+      <td style="min-width:90px"><div class="prio" style="width:${Math.max(4, (r.priority / max) * 84)}px"></div></td>
+      <td><span class="next ${cls[r.action]}">${r.action}</span></td>
+      <td><div class="row-actions">${r.demo
+        ? `<button class="btn quiet" onclick="openSeller('${r.id}', false)">Open</button><button class="btn primary" onclick="openSeller('${r.id}', true)">Call</button>`
+        : `<button class="btn quiet" disabled title="Only sellers marked Live data have full data in this demo">Open</button>`}</div></td></tr>`).join("") + "</tbody>";
+}
+async function openSeller(id, call) {
+  if (inCall) await hangUp();
+  if (id !== sellerId) await loadSeller(id);
+  show("w");
+  if (call) startCall("outbound");
+}
+function renderSellerSelect(rows) {
+  $("sellerSel").innerHTML = rows.filter((r) => r.demo).map((r) => `<option value="${r.id}" ${r.id === sellerId ? "selected" : ""}>${esc(r.name)}, ${esc(r.city)}</option>`).join("");
+}
+$("sellerSel").onchange = (e) => openSeller(e.target.value, false);
+
+// ======================================================================= SELLER ANALYTICS
+function renderHead(d) {
+  const s = d.seller;
+  $("sName").textContent = s.business;
+  $("sMeta").innerHTML = [s.name, s.city, s.category, s.tier + " seller", s.seller_id].map((x) => `<span>${esc(x)}</span>`).join("");
+  $("story").className = "story empty"; $("story").textContent = "Start a call and Priya will work out why sales moved.";
+  $("alerts").innerHTML = d.alerts.map((a) => `<span class="alert">${esc(a.text)}</span>`).join("");
+}
+
+function renderKpis(d) {
+  const L = d.seller.metrics.last_month, T = d.seller.metrics.this_month;
+  const k = (label, a, b, worseIfUp, fmt = (x) => x) => {
+    const p = Math.round(((b - a) / a) * 100), bad = worseIfUp ? p > 0 : p < 0;
+    return `<div class="kpi"><span class="k">${label}</span><span class="v num">${fmt(b)}</span><span class="d ${!p ? "mute" : bad ? "loss" : "gain"}">${p > 0 ? "+" : ""}${p}%</span> <span class="was">from ${fmt(a)}</span></div>`;
+  };
+  const ring = (v, color) => { const c = 2 * Math.PI * 20; return `<svg width="50" height="50" viewBox="0 0 50 50" role="img" aria-label="Score ${v}"><circle cx="25" cy="25" r="20" fill="none" stroke="#ECEBF2" stroke-width="5"/><circle cx="25" cy="25" r="20" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="${(c * v) / 100} ${c}" transform="rotate(-90 25 25)" stroke-linecap="round"/><text x="25" y="30" text-anchor="middle" font-family="Bricolage Grotesque" font-size="14" font-weight="700" fill="${color}">${v}</text></svg>`; };
+  $("kpis").innerHTML =
+    k("Sales", L.sales, T.sales, false, rsK) + k("Orders", L.orders, T.orders) +
+    k("Cancellations", Math.round(L.cancellation_rate * 100), Math.round(T.cancellation_rate * 100), true, (x) => x + "%") +
+    k("Average price", L.asp, T.asp, false, rs) + k("Out of stock", L.out_of_stock_products, T.out_of_stock_products, true) +
+    `<div class="kpi"><span class="k">Seller health score</span><div class="health">${ring(d.health.today, "#C2410C")}<span class="arrow">to</span>${ring(d.health.projected, "#0E8C6E")}<span class="was">today, and if the plan is carried out</span></div></div>`;
+}
+
+function renderBridge(b) {
+  $("bridgeTitle").textContent = `Where the ${rs(b.drop)} went`;
+  const W = 640, H = 250, padL = 8, n = b.steps.length + 2, gap = (W - padL) / n, bw = gap * 0.6;
+  const y = (v) => 22 + (H - 70) * (1 - v / b.start.value);
+  const col = { inventory: "#C2410C", cancellations: "#DD6B20", pricing: "#B91C1C", visibility: "#B7791F", demand: "#8A8798", price_change: "#8A8798" };
+  const bars = [{ label: b.start.label, top: y(b.start.value), bot: y(0), c: "#4A4560", val: rsK(b.start.value) }];
+  let run = b.start.value;
+  for (const s of b.steps) { const nv = run + s.value; bars.push({ label: s.label, top: y(Math.max(run, nv)), bot: y(Math.min(run, nv)), c: col[s.issue] || "#8A8798", val: s.value ? (s.value < 0 ? "−" : "+") + rsK(s.value) : "₹0", level: y(nv) }); run = nv; }
+  bars.push({ label: b.end.label, top: y(run), bot: y(0), c: "#1D1B26", val: rsK(run) });
+  const wrap = (t) => { const out = []; let cur = ""; for (const w of t.split(" ")) { if ((cur + " " + w).trim().length > 13) { out.push(cur); cur = w; } else cur = (cur + " " + w).trim(); } out.push(cur); return out; };
+  let svg = "";
+  bars.forEach((r, i) => {
+    const x = padL + i * gap + (gap - bw) / 2, h = Math.max(2, r.bot - r.top);
+    svg += `<rect x="${x}" y="${r.top}" width="${bw}" height="${h}" rx="4" fill="${r.c}"/>`;
+    svg += `<text x="${x + bw / 2}" y="${r.top - 7}" text-anchor="middle" font-family="Bricolage Grotesque" font-size="14" font-weight="700" fill="${r.c}">${r.val}</text>`;
+    wrap(r.label).forEach((l, j) => (svg += `<text x="${x + bw / 2}" y="${H - 30 + j * 14}" text-anchor="middle" font-size="12" fill="#686579">${esc(l)}</text>`));
+    if (i < bars.length - 1) { const ly = i === 0 ? r.top : r.level; svg += `<line x1="${x + bw}" x2="${x + gap}" y1="${ly}" y2="${ly}" stroke="#C9C7D4" stroke-dasharray="3 3"/>`; }
+  });
+  $("bridge").innerHTML = `<svg viewBox="0 0 ${W} ${H + 8}" width="100%" role="img" aria-label="Sales bridge from last month to this month">${svg}</svg>`;
+}
+
+function renderSkus(skus) {
+  const label = { out: "Out", low: "Low", ok: "In stock", nobb: "No Buy Box" };
+  $("skus").innerHTML = `<thead><tr><th>Product</th><th>Status</th><th class="r">Stock</th><th class="r">Lost</th></tr></thead><tbody>` +
+    skus.map((k) => `<tr data-kw="${esc(k.keywords)}"><td><b style="font-weight:600">${esc(k.name)}</b><br><span class="mute" style="font-size:12.5px">${k.sku}, ${k.last_month_orders} orders last month</span></td>
+      <td><span class="pill ${k.status}">${label[k.status]}</span></td><td class="r">${k.stock}</td><td class="r num ${k.lost_rs ? "loss" : "mute"}">${k.lost_rs ? rs(k.lost_rs) : "None"}</td></tr>`).join("") +
+    `<tr><td colspan="3"><b>Total lost</b></td><td class="r num loss">${rs(skus.reduce((n, k) => n + k.lost_rs, 0))}</td></tr></tbody>`;
+}
+function highlightSkus(text) {
+  const t = text.toLowerCase();
+  document.querySelectorAll("#skus tr[data-kw]").forEach((tr) => { if (tr.dataset.kw && new RegExp(tr.dataset.kw).test(t)) { tr.classList.add("hl"); setTimeout(() => tr.classList.remove("hl"), 7000); } });
+}
+
+// ======================================================================= CALL STATE
+// phase: idle | connecting | listening | thinking | speaking | ended
+function setPhase(p, status, sub = "") {
+  phase = p;
+  $("voice").dataset.state = p;
+  $("status").textContent = status; $("sub").textContent = sub;
+  const t = $("talkBtn");
+  t.disabled = p === "thinking" || p === "connecting";
+  if (p === "speaking") { t.textContent = "Interrupt"; t.dataset.kind = "interrupt"; }
+  else if (p === "listening") { t.textContent = "Send"; t.dataset.kind = "done"; }
+  else if (p === "thinking" || p === "connecting") { t.textContent = "Priya is working…"; t.dataset.kind = ""; }
+  else { t.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Speak`; t.dataset.kind = "speak"; }
+}
+
+// ======================================================================= VOICE OUT
+// One voice only. Cloud TTS gets ONE request per reply (no sentence splitting, no fillers) and we never
+// swap to the browser voice mid-call; that is what made the voice change between sentences before.
+let audio = null, speakToken = 0, bVoice = null;
+function pickBrowserVoice() { const vs = speechSynthesis.getVoices(); bVoice = vs.find((v) => /en-IN/i.test(v.lang) && /female|heera|neerja/i.test(v.name)) || vs.find((v) => /en-IN/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null; }
+speechSynthesis.onvoiceschanged = pickBrowserVoice; pickBrowserVoice();
+
+async function ttsBlobUrl(text) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+      if (r.ok && r.status !== 204) return URL.createObjectURL(await r.blob());
+    } catch {}
+    await new Promise((s) => setTimeout(s, 300 * (attempt + 1)));
+  }
+  return null;
+}
+function browserSay(text, my) {
+  return new Promise((resolve) => {
+    const parts = text.match(/[^.!?]+[.!?]*/g) || [text]; let i = 0;
+    const next = () => {
+      if (my !== speakToken || i >= parts.length) return resolve(my === speakToken);
+      const u = new SpeechSynthesisUtterance(parts[i++].trim()); if (bVoice) u.voice = bVoice; u.lang = bVoice?.lang || "en-IN"; u.rate = 1.03;
+      u.onend = next; u.onerror = next; speechSynthesis.speak(u);
+    };
+    next();
+  });
+}
+async function speak(text) {
+  const my = ++speakToken;
+  setPhase("speaking", "Priya is speaking", "Press Interrupt to cut in.");
+  if (TTS === "browser") return browserSay(text, my);
+  const url = await ttsBlobUrl(text);
+  if (my !== speakToken) return false;
+  if (!url) { addNote("Voice service didn't respond, so this reply is shown as text only."); return true; }
+  return new Promise((res) => {
+    audio = new Audio(url);
+    const done = () => res(my === speakToken);
+    audio.onended = done; audio.onerror = done;
+    audio.play().catch(done);
+  });
+}
+function stopSpeaking() { speakToken++; speechSynthesis.cancel(); if (audio) { audio.onended = audio.onerror = null; audio.pause(); audio = null; } }
+
+// ======================================================================= VOICE IN
+// The mic opens only after Priya has completely finished (plus a short tail), so her voice is never transcribed.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listenTimer = null;
+const words = (t) => t.toLowerCase().replace(/[^a-z0-9ऀ-ॿ ]/g, " ").split(/\s+/).filter(Boolean);
+function soundsLikeBot(t) { const w = words(t), ref = new Set(words(lastBot)); return w.length > 2 && w.filter((x) => ref.has(x)).length / w.length > 0.7; }
+
+function listen(delay = 450) {
+  clearTimeout(listenTimer);
+  listenTimer = setTimeout(() => {
+    if (!inCall || phase === "thinking" || phase === "speaking") return;
+    if (!SR) return setPhase("idle", "Type your reply", "Voice input needs Chrome or Edge.");
+    stopListening();
+    const r = new SR(); rec = r;
+    r.lang = "en-IN"; r.interimResults = true; r.continuous = false;
+    let heard = "";
+    r.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) heard += " " + t; else interim += t; }
+      $("sub").textContent = (heard + " " + interim).trim() || "Listening…";
+    };
+    r.onerror = (e) => { if (e.error === "not-allowed") { setPhase("idle", "Microphone blocked", "Allow mic access in the browser, or type below."); } };
+    r.onend = () => {
+      if (rec !== r) return; rec = null;
+      const text = heard.trim();
+      if (text && !soundsLikeBot(text)) return sendTurn(text);
+      if (inCall && phase === "listening") setPhase("idle", "Didn't catch that", "Press Speak and try again.");
+    };
+    try { r.start(); setPhase("listening", "Listening", "Talk now. Press Send when you finish, or just pause."); } catch { rec = null; }
+  }, delay);
+}
+function stopListening() { clearTimeout(listenTimer); const r = rec; rec = null; if (r) { r.onend = null; try { r.abort(); } catch {} } }
+function finishListening() { if (rec) rec.stop(); } // keeps what was heard and sends it
+
+// ======================================================================= TURNS
+async function sendTurn(text, startMode) {
+  const seq = ++turnSeq;
+  stopListening(); stopSpeaking();
+  if (text !== "__START__") addLine("seller", text);
+  setPhase(startMode ? "connecting" : "thinking", startMode === "outbound" ? "Calling the seller" : startMode ? "Connecting" : "Priya is thinking", startMode === "outbound" ? "Reading the account before dialling." : "");
+  turnAbort = new AbortController();
+  try {
+    const r = await fetch("/api/turn", { method: "POST", signal: turnAbort.signal, headers: { "content-type": "application/json" }, body: JSON.stringify({ text, mode: startMode, sellerId, session: startMode ? null : callSession }) }).then((x) => x.json());
+    if (seq !== turnSeq) return;            // call was ended or another turn started
+    if (r.error) throw new Error(r.error);
+    callSession = r.session;
+    render(r);
+    lastBot = r.reply;
+    addLine("kam", r.reply); highlightSkus(r.reply); revealFrom(r.reply, r);
+    armDemoInterrupt();
+    const finished = await speak(r.reply);
+    clearTimeout(demoInterruptTimer);
+    if (seq !== turnSeq) return;
+    if (r.ended) { endedUi(); return demoAfterCallEnded(); }
+    if (queuedText) { const q = queuedText; queuedText = null; return sendTurn(q); }
+    if (finished) setPhase("idle", "Your turn", "Press Speak when you want to reply.");
+    if (finished && demo.on) demoNext(700);
+  } catch (e) {
+    if (e.name === "AbortError" || seq !== turnSeq) return;
+    addNote("Couldn't reach Priya: " + e.message + ". Press Talk to try again.");
+    setPhase("idle", "Connection problem", "Press Talk to try again.");
+  }
+}
+
+function startCall(m) {
+  mode = m; sessionId = crypto.randomUUID(); callSession = null; inCall = true;
+  resetCallPanels(); $("log").innerHTML = "";
+  $("startBtns").hidden = true; $("callBtns").hidden = false; $("kbdHint").hidden = false;
+  sendTurn("__START__", m);
+}
+async function hangUp() {
+  if (!inCall) return;
+  inCall = false; turnSeq++;                 // ignore anything still in flight
+  turnAbort?.abort(); stopSpeaking(); stopListening();
+  setPhase("ended", "Call ended", "Writing the summary…");
+  $("callBtns").hidden = true; $("kbdHint").hidden = true;
+  addNote("You ended the call.");
+  try {
+    const r = await fetch("/api/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "__HANGUP__", session: callSession }) }).then((x) => x.json());
+    if (!r.error) { callSession = r.session; render(r); }
+  } catch {}
+  endedUi();
+}
+function endedUi() {
+  inCall = false; stopListening();
+  setPhase("ended", "Call ended", "The summary is on the right. Start another call any time.");
+  $("startBtns").hidden = false; $("callBtns").hidden = true; $("kbdHint").hidden = true;
+}
+
+$("talkBtn").onclick = () => {
+  if (phase === "speaking") { stopSpeaking(); [...document.querySelectorAll(".line.kam")].pop()?.classList.add("cut"); listen(0); }
+  else if (phase === "listening") finishListening();
+  else if (inCall) listen(0);
+  $("talkBtn").blur();
+};
+$("hangBtn").onclick = hangUp;
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat || !inCall || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
+  e.preventDefault(); if (!$("talkBtn").disabled) $("talkBtn").click();
+});
+document.querySelectorAll("#startBtns [data-mode]").forEach((b) => (b.onclick = () => startCall(b.dataset.mode)));
+$("typed").onsubmit = (e) => {
+  e.preventDefault(); const v = $("typedIn").value.trim(); if (!v) return; $("typedIn").value = "";
+  if (!inCall) { queuedText = v; startCall("inbound"); return; }
+  if (phase === "thinking" || phase === "connecting") return;
+  sendTurn(v);
+};
+
+// ======================================================================= AUTO DEMO
+// Plays a scripted SELLER through a second Gnani voice. Each line is synthesised, then transcribed by
+// Gnani speech-to-text, and Priya answers whatever STT heard. Priya's side is fully live (no script).
+const DEMO = [
+  { act: "portfolio", wait: 6000, title: "The agent decides who needs attention", text: "Priya watches 12 sellers and ranks them by money at risk. Kumar Home & Kitchen is top, so she calls them herself." },
+  { act: "call", seller: "SD-SLR-48213", title: "Proactive outbound call", text: "Monitoring flagged a 32% sales drop. Priya reads the account, then dials with the reason and the rupee impact." },
+  { say: "Haan ji, bataiye. What exactly went wrong this month?", lang: "hi-en", title: "Hinglish, through real speech-to-text", text: "The seller speaks Hinglish. Gnani transcribes it, and Priya explains the root cause from the data." },
+  { say: "Hmm. Should I just reduce my prices to get sales back?", title: "Off-script question", text: "Priya answers from pricing data (prices aren't the problem), then steers back to the plan." },
+  { say: "Sorry, one second. My supplier delayed the shipment, and cash is a bit tight this month.", interruptAfter: 3500, title: "Seller interrupts Priya", text: "Priya stops mid-sentence and adapts the plan to a cash constraint." },
+  { say: "Yes, please go ahead and do that.", title: "Acting, only with consent", text: "After a clear yes, Priya changes the account herself. See 'Done by Priya' and the timeline." },
+  { say: "Yes please. Enrol my in-stock products in the sale too. And my last payment settlement has been pending for two weeks.", title: "Commit, forecast, escalate", text: "Priya enrols the sale, logs the seller's restock task and hands the payment issue to a human KAM." },
+  { say: "Okay, that's all for now. Thank you, Priya.", title: "Follow-up and summary", text: "Priya books a check-in with a success metric and closes with a summary." },
+  { act: "call", seller: "SD-SLR-48317", title: "Different seller, different problem", text: "Same agent, no script on Priya's side. TechNest lost the Buy Box to a price war." },
+  { say: "Yes, tell me. Should I cut prices on everything?", title: "The advice changes with the data", text: "Here pricing IS the problem, so Priya recommends selective price matching that protects margin." },
+  { act: "hangup", title: "Ending the call", text: "Hanging up mid-call still produces a summary." },
+];
+const demo = { on: false, i: 0 };
+let demoInterruptTimer = null, sttTag = null, sellerAudio = null;
+
+function caption(step) {
+  $("caption").hidden = false;
+  $("capStep").textContent = `Step ${demo.i} of ${DEMO.length}`;
+  $("capTitle").textContent = step.title; $("capText").textContent = step.text;
+}
+function demoNext(delay = 0) { setTimeout(() => demo.on && runDemoStep(), delay); }
+async function runDemoStep() {
+  const step = DEMO[demo.i++];
+  if (!step) return stopDemo("Demo complete.");
+  caption(step);
+  if (step.act === "portfolio") { if (inCall) await hangUp(); show("p"); return demoNext(step.wait); }
+  if (step.act === "call") { if (inCall) await hangUp(); await openSeller(step.seller, false); show("w"); return startCall("outbound"); }
+  if (step.act === "hangup") { await new Promise((r) => setTimeout(r, 1500)); await hangUp(); return setTimeout(() => stopDemo("Demo complete."), 5000); }
+  if (!inCall) return runDemoStep(); // call already ended by Priya: skip to the next call
+  return sellerSays(step);
+}
+async function sellerSays(step) {
+  setPhase("seller", "Seller is speaking", "Voiced by Gnani, transcribed by Gnani STT");
+  $("talkBtn").disabled = true;
+  try {
+    const r = await fetch("/api/demo-seller", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: step.say, language: step.lang }) }).then((x) => x.json());
+    if (r.error) throw new Error(r.error);
+    if (!demo.on || !inCall) return;
+    $("sub").textContent = "“" + r.transcript + "”";
+    await new Promise((res) => { sellerAudio = new Audio("data:audio/mpeg;base64," + r.audio); sellerAudio.onended = res; sellerAudio.onerror = res; sellerAudio.play().catch(res); });
+    sellerAudio = null;
+    if (!demo.on || !inCall) return;
+    sttTag = r.stt_ok ? "Heard by Gnani speech-to-text" : "Speech-to-text failed, so the scripted line was used";
+    sendTurn(r.transcript);
+  } catch (e) { addNote("Demo seller voice failed: " + e.message); stopDemo("Demo stopped."); }
+}
+function armDemoInterrupt() {
+  clearTimeout(demoInterruptTimer);
+  const next = DEMO[demo.i];
+  if (!demo.on || !next?.interruptAfter) return;
+  demoInterruptTimer = setTimeout(() => {
+    if (phase !== "speaking" || !demo.on) return;
+    stopSpeaking(); [...document.querySelectorAll(".line.kam")].pop()?.classList.add("cut");
+    runDemoStep();
+  }, next.interruptAfter);
+}
+function demoAfterCallEnded() {
+  if (!demo.on) return;
+  while (DEMO[demo.i] && DEMO[demo.i].say) demo.i++; // skip seller lines meant for a call that has ended
+  demoNext(4000);
+}
+function startDemo() {
+  if (TTS !== "gnani") return addNote("The auto demo needs a Gnani key.");
+  demo.on = true; demo.i = 0; runDemoStep();
+}
+function stopDemo(msg) {
+  demo.on = false; clearTimeout(demoInterruptTimer);
+  if (sellerAudio) { sellerAudio.pause(); sellerAudio = null; }
+  $("caption").hidden = true;
+  if (msg) addNote(msg);
+}
+$("demoBtn").onclick = startDemo;
+$("stopDemo").onclick = async () => { stopDemo("Demo stopped."); if (inCall) await hangUp(); };
+
+// ======================================================================= RENDER CALL STATE
+function addLine(who, text) { const via = who === "seller" && sttTag ? `<span class="via">${esc(sttTag)}</span>` : ""; sttTag = null; const d = document.createElement("div"); d.className = "line " + who; d.innerHTML = `<span class="who">${who === "kam" ? "Priya" : "Seller"}</span><p>${esc(text)}${via}</p>`; $("log").append(d); $("log").scrollTop = 1e9; }
+function addNote(text) { const d = document.createElement("div"); d.className = "line note"; d.innerHTML = `<p>${esc(text)}</p>`; $("log").append(d); $("log").scrollTop = 1e9; }
+function lit(k) { document.querySelector(`#track [data-k=${k}]`)?.classList.add("on"); }
+
+const STAGE = { Detect: "#E40046", Diagnose: "#4338CA", Prioritise: "#4338CA", Answer: "#0369A1", Act: "#0E8C6E", Commit: "#0E8C6E", Forecast: "#B7791F", "Follow through": "#B7791F", Escalate: "#C2410C", Close: "#1D1B26" };
+let traceShown = 0;
+function renderTrace(trace) {
+  if (!trace?.length) return;
+  if (!traceShown) $("trace").innerHTML = "";
+  for (const e of trace.slice(traceShown)) {
+    const d = document.createElement("div");
+    d.className = "ev new" + (e.stage === "Respond" ? " respond" : "");
+    d.style.setProperty("--c", STAGE[e.stage] || "#686579");
+    d.innerHTML = e.stage === "Respond"
+      ? `<span class="pt"></span><div><div class="d">Replied in ${(e.ms / 1000).toFixed(1)}s</div></div>`
+      : `<span class="pt"></span><div><div class="h"><b>${esc(e.stage)}</b><span>${esc(e.tool.replace(/_/g, " "))}</span></div><div class="d">${esc(e.detail)}</div></div>`;
+    $("trace").append(d);
+  }
+  traceShown = trace.length; $("trace").scrollTop = 1e9;
+}
+
+function render(r) {
+  renderTrace(r.trace);
+  if (r.alerts) lit("detect");
+  if (r.diagnosis) known.diagnosis = r.diagnosis;          // stored, not shown: revealed as Priya says it
+  if (r.opportunities) known.opportunities = r.opportunities;
+  if (r.executed?.length) {
+    lit("act");
+    $("executed").innerHTML = r.executed.map((e) => `<div class="item"><span class="tick done">✓</span><div><b>${esc(e.label)}</b><span>${esc(e.detail)}. Reference ${esc(e.reference)}, ${esc(e.at)}</span></div></div>`).join("");
+  }
+  if (r.actions?.length) {
+    lit("commit");
+    $("actions").innerHTML = r.actions.map((a) => `<div class="item"><span class="tick ${a.owner}">${a.owner === "kam" ? "P" : "S"}</span><div><b>${esc(a.title)}</b><span>Due in ${a.due_in_days} day${a.due_in_days === 1 ? "" : "s"}. ${esc(a.expected_impact)}</span></div></div>`).join("");
+  }
+  if (r.followUp) { lit("follow"); $("follow").innerHTML = `<div class="item"><span class="tick cal">↻</span><div><b>Priya calls back ${esc(r.followUp.date)}</b><span>${esc(r.followUp.agenda)}. Success means ${esc(r.followUp.success_metric)}.</span></div></div>`; }
+  if (r.projection) {
+    lit("forecast");
+    const p = r.projection, top = Math.max(p.last_month_sales, p.projected_next_month), h = (v) => Math.round((v / top) * 100);
+    $("projCard").hidden = false;
+    $("projHint").textContent = `If the plan is carried out: +${rs(p.uplift_rs)} a month. Assumes ${p.assumption}.`;
+    $("proj").innerHTML = `<div class="forecast"><div>Last month<b>${rsK(p.last_month_sales)}</b><i style="height:${h(p.last_month_sales)}px"></i></div><div class="now">This month<b>${rsK(p.current_sales)}</b><i style="height:${h(p.current_sales)}px"></i></div><div class="next">Next month<b>${rsK(p.projected_next_month)}</b><i style="height:${h(p.projected_next_month)}px"></i></div></div>`;
+  }
+  if (r.escalation) {
+    lit("escalate"); $("escCard").hidden = false;
+    $("esc").innerHTML = `<p style="margin:6px 0 0"><b>Ticket ${esc(r.escalation.ticket)}</b>, ${esc(r.escalation.priority)}. A human KAM calls back ${esc(r.escalation.sla)}.</p><p class="mute" style="margin:4px 0 0">${esc(r.escalation.reason)}. Context passed on: ${esc(r.escalation.context_for_human)}</p>`;
+  }
+  if (r.summary) {
+    revealAll();
+    $("sumCard").hidden = false;
+    const ul = (t, xs) => (xs?.length ? `<h3>${t}</h3><ul>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
+    $("summary").innerHTML = ul("Key issues", r.summary.key_issues) + ul("Done by Priya", r.summary.actions_taken_by_kam) + ul("Seller's next steps", r.summary.seller_next_steps) + `<h3>Expected outcome</h3><p style="margin:0;font-size:14px">${esc(r.summary.expected_outcome)}</p>`;
+    $("sumCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+// ======================================================================= PROGRESSIVE REVEAL
+// The server knows the whole analysis from the first turn, but the screen should follow the conversation:
+// an issue appears when Priya explains it, a fix appears when she proposes it (or carries it out).
+const known = { diagnosis: null, opportunities: null, issues: new Set(), opps: new Set(), kamTurns: 0 };
+const ISSUE_WORDS = {
+  inventory: /out of stock|stock-out|stockout|zero stock|restock|bestseller/, cancellations: /cancel/, dispatch: /dispatch|late|delay|pickup|ship/,
+  pricing: /price|pricing|buy box/, visibility: /impression|visibility|ranking|search|rating/, demand: /season|demand|category/, promotions: /promotion|deal|ads?\b|advert|sponsor/,
+};
+const OPP_WORDS = {
+  restock: /restock|reorder|supplier|top two|top 2/, cancel: /alert|pause|auto-pause|oversell/, dispatch: /pickup|sla|dispatch alert|second pickup/,
+  price: /\bmatch|win back the buy box|win the buy box back|adjust (the |your )?price/, sale: /\bsale\b|enrol|enroll|winter saver/, ads: /\bads?\b|sponsor|advert/, festive: /christmas|festive|holiday|stock up/, bundle: /bundle|combo/,
+};
+function revealFrom(text, r) {
+  const t = (text || "").toLowerCase();
+  known.kamTurns++;
+  const d = known.diagnosis, o = known.opportunities;
+  if (d) for (const i of d.issues) if (ISSUE_WORDS[i.id]?.test(t)) known.issues.add(i.id);
+  if (o) for (const op of o) {
+    if (OPP_WORDS[op.id]?.test(t)) known.opps.add(op.id);
+    if ((r.executed || []).some((e) => e.opportunity === op.id)) known.opps.add(op.id); // she did it, so it was proposed
+  }
+  drawReveal();
+}
+function revealAll() {
+  known.diagnosis?.issues.forEach((i) => known.issues.add(i.id));
+  known.opportunities?.forEach((o) => known.opps.add(o.id));
+  drawReveal();
+}
+function drawReveal() {
+  const d = known.diagnosis, o = known.opportunities;
+  const shownIssues = d ? d.issues.filter((i) => known.issues.has(i.id)) : [];
+  const shownOpps = o ? o.filter((x) => known.opps.has(x.id)) : [];
+  const before = new Set([...document.querySelectorAll("#diag [data-id], #opps [data-id]")].map((n) => n.dataset.id));
+  if (shownIssues.length) {
+    lit("diagnose");
+    if (known.kamTurns >= 2 || shownIssues.length >= 2) { $("story").className = "story"; $("story").textContent = d.summary.root_cause_chain; }
+    $("diag").innerHTML = shownIssues.map((i) => `<div class="issue ${i.severity}${before.has("i-" + i.id) ? "" : " fresh"}" data-id="i-${i.id}">${i.monthly_impact_rs ? `<span class="amt">${rsK(i.monthly_impact_rs)}</span>` : ""}<b>${esc(i.headline)}</b><span>${esc(i.evidence)}</span></div>`).join("") +
+      (shownIssues.length < d.issues.length ? `<p class="empty-state">More appear as Priya explains them.</p>` : "");
+  }
+  if (shownOpps.length) {
+    lit("prioritise");
+    const max = Math.max(...o.map((x) => x.recoverable_rs));
+    $("opps").innerHTML = shownOpps.map((x) => `<div class="opp${before.has("o-" + x.id) ? "" : " fresh"}" data-id="o-${x.id}"><div><b>${esc(x.title)}</b><span class="who ${x.owner}">${x.owner === "kam" ? "Priya can do this" : "Seller does this"}</span></div><span class="amt">+${rsK(x.recoverable_rs)}</span><div class="basis">${esc(x.basis)}</div><div class="meter"><i style="width:${(x.recoverable_rs / max) * 100}%"></i></div></div>`).join("");
+  }
+}
+
+function resetCallPanels() {
+  traceShown = 0;
+  known.diagnosis = known.opportunities = null; known.issues.clear(); known.opps.clear(); known.kamTurns = 0;
+  document.querySelectorAll("#track li").forEach((li) => li.classList.remove("on"));
+  $("trace").innerHTML = `<p class="empty-state">Nothing yet. Start a call to watch Priya work.</p>`;
+  $("diag").innerHTML = `<p class="empty-state">Issues appear here as Priya explains them on the call.</p>`;
+  $("opps").innerHTML = `<p class="empty-state">Fixes appear here as Priya proposes them.</p>`;
+  $("executed").innerHTML = `<p class="empty-state">No changes made yet.</p>`;
+  $("actions").innerHTML = `<p class="empty-state">No tasks agreed yet.</p>`;
+  $("follow").innerHTML = "";
+  ["projCard", "sumCard", "escCard"].forEach((id) => ($(id).hidden = true));
+  if (DATA) { $("story").className = "story empty"; $("story").textContent = "Start a call and Priya will work out why sales moved."; }
+  if (!inCall) { setPhase("idle", "Ready to call", "Priya can call the seller, take their call, or follow up."); $("startBtns").hidden = false; $("callBtns").hidden = true; $("kbdHint").hidden = true; }
+}
+</script>
+</body>
+</html>
