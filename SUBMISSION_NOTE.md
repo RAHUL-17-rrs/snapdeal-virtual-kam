@@ -5,6 +5,10 @@
 ## What it is
 "Priya" is a voice agent that acts as a seller's Key Account Manager (KAM). She doesn't wait for questions. She spots a seller whose numbers are falling, calls them, works out the cause from data and asks only what the data can't tell her. She then **makes fixes on the account once the seller says yes**, logs the seller's own tasks, forecasts the recovery, books a follow-up and passes payment or legal issues to a human.
 
+## Two ways to try it
+1. **Speak to Priya yourself:** open a seller, click **Call seller now**, then press **Speak** (or the space bar) and talk using your own microphone. Press **Interrupt** to cut in while she speaks, and **End call** to get the summary. Use Chrome or Edge and allow mic access.
+2. **Play auto demo:** one click runs a complete call with no microphone needed. A demo seller voice (Gnani, "Avinash") speaks scripted lines, Gnani speech-to-text transcribes them, and **Priya answers live**. On-screen captions explain what each step shows.
+
 ## Models and voice stack
 | Layer | Technology | Why |
 |---|---|---|
