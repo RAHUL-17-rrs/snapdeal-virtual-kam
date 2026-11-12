@@ -477,7 +477,7 @@ function browserSay(text, my) {
 }
 async function speak(text) {
   const my = ++speakToken;
-  setPhase("speaking", "Priya is speaking", "Press Interrupt to cut in.");
+  setPhase("speaking", "Priya is speaking", "Press Interrupt to cut in and speak.");
   if (TTS === "browser") return browserSay(text, my);
   const url = await ttsBlobUrl(text);
   if (my !== speakToken) return false;
@@ -581,7 +581,12 @@ function endedUi() {
 }
 
 $("talkBtn").onclick = () => {
-  if (phase === "speaking") { stopSpeaking(); [...document.querySelectorAll(".line.kam")].pop()?.classList.add("cut"); listen(0); }
+  if (phase === "speaking") {
+    // Interrupt = stop Priya AND open the mic right away, so the seller can talk immediately.
+    stopSpeaking(); [...document.querySelectorAll(".line.kam")].pop()?.classList.add("cut");
+    setPhase("idle", "Go ahead", "Opening the mic…");
+    listen(0);
+  }
   else if (phase === "listening") finishListening();
   else if (inCall) listen(0);
   $("talkBtn").blur();
